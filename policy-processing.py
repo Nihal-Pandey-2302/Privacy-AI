@@ -1,62 +1,61 @@
+import spacy
 import os
 import re
 import json
 import csv
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.tag import pos_tag
-from nltk.stem import WordNetLemmatizer
+import random
+from spacy.lang.en.stop_words import STOP_WORDS
+from spacy.tokenizer import Tokenizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
-# Step 1: Identify Relevant Policies
-# Gather policies from various sources such as government documents, industry reports, academic papers, and company guidelines.
-# Example sources: EU's AI Ethics Guidelines, Google's AI Principles, and the Asilomar AI Principles.
+# Load the spaCy model
+nlp = spacy.load("en_core_web_sm")
 
-# Step 2: Define Data Categories
-# Policy Text: The raw text of policies for natural language processing (NLP) tasks.
-# Key Concepts: Extracted concepts such as definitions of misuse, prohibited use cases, ethical guidelines, etc.
-# Entities: Identify specific entities (e.g., types of AI systems, stakeholders, prohibited actions) mentioned in the policies.
+# Define a custom tokenizer
+custom_tokenizer = Tokenizer(nlp.vocab)
 
-# Step 3: Data Extraction
-# Text Parsing: Use NLP techniques to parse the policy documents.
-# Named Entity Recognition (NER): Apply NER to identify and extract relevant entities (e.g., AI technologies, regulatory bodies, misuse categories) mentioned in the policies.
-# Topic Modeling: Apply topic modeling techniques (e.g., Latent Dirichlet Allocation) to identify key themes and topics within the policy documents.
-
+# Define a function to extract text from a file
 def extract_text(file_path):
     with open(file_path, 'r') as file:
         text = file.read()
     return text
 
+# Define a function to parse text using spaCy
 def parse_text(text):
-    # Tokenization, part-of-speech tagging, and lemmatization
-    tokens = word_tokenize(text)
-    tagged_tokens = pos_tag(tokens)
-    lemmatizer = WordNetLemmatizer()
-    lemmatized_tokens = [lemmatizer.lemmatize(token, pos_tag[1]) for token in tagged_tokens]
-    return lemmatized_tokens
+    doc = nlp(text)
+    parsed_text = [(tok.text, tok.lemma_, tok.pos_, tok.tag_, tok.dep_) for tok in doc]
+    return parsed_text
 
+# Define a function to extract entities using spaCy
 def extract_entities(text):
-    # Named Entity Recognition
-    entities = nltk.ne_chunk(tagged_tokens)
+    doc = nlp(text)
+    entities = [(X.text, X.label_) for X in doc.ents]
     return entities
 
+# Define a function to perform topic modeling using spaCy
 def topic_modeling(texts):
-    # Topic Modeling using Latent Dirichlet Allocation
+    # Tokenize the texts using the custom tokenizer
+    tokens = [custom_tokenizer(text) for text in texts]
+
+    # Remove stop words and punctuation
+    stop_words = set(STOP_WORDS)
+    tokens = [[tok.text for tok in doc if not tok.text.ispunct() and tok.text not in stop_words] for doc in tokens]
+
+    # Vectorize the tokens using TfidfVectorizer
     vectorizer = TfidfVectorizer()
-    tfidf = vectorizer.fit_transform(texts)
+    tfidf = vectorizer.fit_transform(tokens)
+
+    # Fit the LDA model
     lda_model = LatentDirichletAllocation(n_components=10)
     lda_model.fit(tfidf)
+
     return lda_model
 
-# Step 4: Annotation and Labeling
-# Manual Annotation: Depending on the complexity and nuance of the policies, manually annotate sections of text to categorize them into specific data types (e.g., misuse scenarios, compliance requirements, ethical principles).
-# Supervised Learning: Use supervised learning techniques to train models to automatically classify policy text into predefined categories based on your dataset's objectives.
-
+# Define a function to annotate text with categories
 def annotate_text(text, categories):
     # Manual annotation
     annotated_text = []
@@ -64,17 +63,18 @@ def annotate_text(text, categories):
         annotated_text.append((text, category))
     return annotated_text
 
+# Define a function to train a supervised learning model
 def train_model(X, y):
-    # Supervised learning
+    # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Train a logistic regression model
     model = LogisticRegression()
     model.fit(X_train, y_train)
+
     return model
 
-# Step 5: Dataset Structuring
-# Schema Design: Define a structured format for your dataset, such as JSON or CSV, that incorporates the extracted data categories (e.g., policy text, entities, categories).
-# Data Normalization: Ensure consistency in how data is represented across the dataset (e.g., standardize entity names, use consistent labels for policy types).
-
+# Define a function to structure the dataset
 def structure_dataset(data, schema):
     # Structuring the dataset
     structured_data = []
@@ -85,25 +85,23 @@ def structure_dataset(data, schema):
         structured_data.append(structured_item)
     return structured_data
 
-# Step 6: Validation and Quality Control
-# Human Review: Conduct manual validation to ensure the accuracy and completeness of the dataset.
-# Data Cleaning: Remove duplicates, correct errors, and handle inconsistencies in the dataset.
-
-def validate_dataset(dataset):
-    # Manual validation
-    pass
-
-def clean_dataset(dataset):
-    # Data cleaning
-    pass
-
-# Step 7: Dataset Publication
-# Documentation: Provide clear documentation describing the dataset's purpose, contents, and potential use cases.
-# Distribution: Publish the dataset through platforms like GitHub, Kaggle, or academic repositories to facilitate access and usage by the AI research community.
-
-def publish_dataset(dataset, documentation, platform):
-    # Publishing the dataset
-    pass
-
 # Example usage
 policies = ['policy1.txt', 'policy2.txt', 'policy3.txt']
+
+# Extract text from the policies
+texts = [extract_text(policy) for policy in policies]
+
+# Parse the text using spaCy
+parsed_texts = [parse_text(text) for text in texts]
+
+# Extract entities from the text using spaCy
+entities = [extract_entities(text) for text in texts]
+
+# Perform topic modeling using spaCy
+lda_model = topic_modeling(texts)
+
+# Define the schema for the dataset
+schema = {
+    "policy_text": 0,
+    "parsed_text": 1,
+}
